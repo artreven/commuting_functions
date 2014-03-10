@@ -428,9 +428,9 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
     ts = time.time()
     elapsed = 0            
     while d_bindings:
-        elapsed = time.time() - ts
         if elapsed > wait:
-            raise TimeoutException
+            raise TimeoutException(wait)
+        elapsed = time.time() - ts
         new_f_input, new_f_binded_inputs_ls = d_bindings.popitem()
         domain = f.domain[:]
         # Pick up a value from domain and assign it to new_func(new_func_input)

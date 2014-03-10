@@ -18,8 +18,8 @@ def read_cxts():
     cxt_f3a = fca.read_csv(path_f3a) 
     cxt_fdanilchenko = fca.read_csv(path_fdanilchenko)
 
-path_to_cxt = '../cxt203.cxt'
-dest = '../ae_3valdomain3_from_neg_50/'
+path_to_cxt = '../cxt_203.cxt'
+dest = '../../ae_3valdomain3_from_neg_50/'
 #f10 = df.DiscreteFunction(range(2), {(0,): 0, (1,): 0})
 #f11 = df.DiscreteFunction(range(2), {(0,): 0, (1,): 1})
 #f12 = df.DiscreteFunction(range(2), {(0,): 1, (1,): 0})
@@ -33,7 +33,7 @@ dest = '../ae_3valdomain3_from_neg_50/'
 if __name__ == '__main__':
     cxt = fca.readwrite.read_cxt(path_to_cxt)
     ae = rc.ae.AE(cxt, dest, rc.ae.ce_finder, rc.ae.has_attribute, rc.ae.go_on)
-    ae.step = 47
+    ae.step = 60
     dict_wait50 = {'wait': 50}
     dict_wait150 = {'wait': 150}
     dict_wait10 = {'wait': 10}
