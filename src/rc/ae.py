@@ -163,61 +163,54 @@ class AE(object):
         no_objs = len(self.cxt.objects)
         ts = time.time()
         ce_dict = {}
-        dict_info = {}
+#         dict_info = {}
+        cnt = 0
         for imp in self.not_proved:
+            cnt += 1
             ts_ce = time.time()
             (unit_conclusion,) = frozenset(imp.conclusion)
             if (wait <= self.resistant_imps[frozenset(imp.premise)][unit_conclusion]):
-                dict_info[imp] = ('Tried before', time.time() - ts_ce)
-                continue
-            ce = self.ce_finder(imp, wait)
-            if hasattr(ce, '__len__') and len(ce) == 2:
-                ce, reason = ce
-            ce_dict[imp] = ce
-            dict_info[imp] = (ce, time.time() - ts_ce)
+#                 dict_info[imp] = ('Tried before', time.time() - ts_ce)
+                info = ('Tried before', time.time() - ts_ce)
+            else:
+                ce = self.ce_finder(imp, wait)
+                if hasattr(ce, '__len__') and len(ce) == 2:
+                    ce, reason = ce
+                    # max_wait is needed if time constraint is decreased, so that most valuable survives
+                    if reason == 'stop':
+                        max_wait = float('inf')
+                    else:
+                        max_wait = max(wait, self.resistant_imps[frozenset(imp.premise)][unit_conclusion])
+                    self.resistant_imps[frozenset(imp.premise)][unit_conclusion] = max_wait
+                ce_dict[imp] = ce
+#                 dict_info[imp] = (ce, time.time() - ts_ce)
+                info = (ce, time.time() - ts_ce)
             
             with open(self.dest + '/step{0}ces.txt'.format(self.step-1), 'a') as f:
                 f.write('\tCounter-examples:\n')
-                ce_t = dict_info[imp]
+#                 ce_t = dict_info[imp]
                 m = str(imp) + '\n'
-                if ce_t[0] and not isinstance(ce_t[0], str):
-                    m += 'Found: ' + str(ce_t[0])
+                if info[0] and not isinstance(info[0], str):
+                    m += 'Found: ' + str(info[0])
                 else:
-                    m += str(ce_t[0])
-                m += '\nTime taken:{0}\n\n'.format(ce_t[1])
+                    m += str(info[0])
+                m += '\nTime taken:{0}\n\n'.format(info[1])
                 f.write(m)
-                
-            if not ce:
-                # max_wait is needed if time constraint is decreased, so that most valuable survives
-                if reason == 'stop':
-                    max_wait = float('inf')
-                else:
-                    max_wait = max(wait, self.resistant_imps[frozenset(imp.premise)][unit_conclusion])
-                self.resistant_imps[frozenset(imp.premise)][unit_conclusion] = max_wait
-            elif ce:
+            if ce:
                 break
         te = time.time()
-        self.step += 1
         _add_objects(set(ce_dict.values()), self)
+        with open(self.dest + '/step{0}ces.txt'.format(self.step), 'a') as f:
+            f.write('\n\n\n\t Context:\n' + str(self.cxt))
+        self.step += 1
         # messages
         m = '\nCOUNTER-EXAMPLE FINDING PHASE, wait = {0}:\n'.format(wait)
         m += 'It took {0} seconds.\n'.format(te - ts)
-        m += 'Run on {0} atomic implications.\n'.format(no_imps)
+        m += 'Total {0} unit implications, processed {1} unit implications.\n'.format(no_imps, cnt)
         m += 'There were {0} objects before the start of this step\n'.format(no_objs)
         m += 'There were {0} counter-examples found on this step\n'.format(len([x for x in ce_dict.values() if x != None]))
         m += '{0} Objects left after reducing\n'.format(len(self.cxt.objects))
         self.logger.info(m)
-        with open(self.dest + '/step{0}ces.txt'.format(self.step-1), 'a') as f:
-            #f.write('\tCounter-examples:\n')
-            #for imp, ce_t in dict_info.items():
-            #    m = str(imp) + '\n'
-            #    if ce_t[0] and not isinstance(ce_t[0], str):
-            #        m += 'Found: ' + str(ce_t[0])
-            #    else:
-            #        m += str(ce_t[0])
-            #    m += '\nTime taken:{0}\n\n'.format(ce_t[1])
-            #    f.write(m)
-            f.write('\n\n\n\t Context:\n' + str(self.cxt))
         return ce_dict
     
     def run(self, **kwargs):
@@ -229,6 +222,8 @@ class AE(object):
         @param prove_wait: tuple of how long to wait for proofs.
         """
         while True:
+            self._output_cxt()
+            self._output_imps()
             # try to find counter-examples
             ts = time.time()
             m = '\n\tSTARTING STEP {0}\n'.format(self.step)
@@ -249,8 +244,6 @@ class AE(object):
                 else:
                     m = '\nNo new objects, exiting\n'
                     self.logger.info(m)
-                    self._output_cxt()
-                    self._output_imps()
                     break
             else:
                 m = '\nSTEP TIME: {0} sec\n'.format(time.time() - ts)
@@ -293,13 +286,12 @@ def ce_finder(imp, wait=None, max_arity=4):
     """
     ls_f_other = map(df.DiscreteFunction.read_from_str, imp.premise)
     f_not = df.DiscreteFunction.read_from_str(imp.conclusion.pop())
-    ls_f_not = [f_not,]
     timeout = False
     for arity in range(1, max_arity):
         f_initial = df.DiscreteFunction(f_not.domain, {}, arity)
         try:
-            return df.commuting_functions_batch(f_initial, ls_f_other,
-                                                ls_f_not, wait).next()
+            return df.commuting_functions_from_negative(f_initial, ls_f_other,
+                                                        f_not, wait).next()
         except StopIteration:
             continue
         except df.TimeoutException:

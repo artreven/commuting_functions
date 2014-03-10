@@ -46,13 +46,13 @@ class Test:
         assert not df.DiscreteFunction(range(2), dict_f).is_total()
         
     def test_commute_on(self):
-        assert df.commute_on(self.DF1, self.DF2, ((0, 0), (1, 1)))[0]
+        assert df._commute_on(self.DF1, self.DF2, ((0, 0), (1, 1)))[0]
         
     def test_not_commute_on(self):
-        assert not df.commute_on(self.DF1, self.DF2, ((1, 0), (1, 0)))[0]
+        assert not df._commute_on(self.DF1, self.DF2, ((1, 0), (1, 0)))[0]
         
     def test_commute_stats(self):
-        assert df.commute_on(self.DF1, self.DF2, ((1, 0), (1, 0))) == (False, (0,1), 0)
+        assert df._commute_on(self.DF1, self.DF2, ((1, 0), (1, 0))) == (False, (0,1), 0)
         
     def test_get_total_domain(self):
         assert (2,2) in df._get_total_domain(range(3), 2)
@@ -112,6 +112,7 @@ class Test:
                                       ls_f_other)
         assert it_f.next()
     
+    @nottest
     def test_no_commuting_duplicates(self):
         dict_f = {(0,0): 0, (0,1): 0, (1,0): 0, (1,1): 0,
                   (2,0): 0, (2,1): 0, (1,2): 0, (0,2): 0,
@@ -131,6 +132,7 @@ class Test:
         s_fs = set(ls_fs)
         print len(s_fs), len(ls_fs)
         assert len(s_fs) == len(ls_fs)
+        
 
     def test_find_commuting_counterexample(self):
         dict_f = {(0,0): 0, (0,1): 0, (1,0): 0, (1,1): 0,
@@ -149,13 +151,16 @@ class Test:
         it_f = df.commuting_functions_batch(df.DiscreteFunction(range(3), {}, 2),
                                       ls_f_other, [f_other3,])
         assert it_f.next()
+        it_f = df.commuting_functions_from_negative(df.DiscreteFunction(range(3), {}, 2),
+                                                    ls_f_other, f_other3)
+        assert it_f.next()
+        
         
     def test_find_from_noncommuting(self):
         dict_f = {(0,0): 1, (0,1): 0, (1,0): 0, (1,1): 1,
                   (2,0): 0, (2,1): 0, (1,2): 1, (0,2): 1,
                   (2,2): 0}
         f_other3 = df.DiscreteFunction(range(3), dict_f)
-        #*_batch* does not work if no positive functions
         it_f = df.commuting_functions(df.DiscreteFunction(range(3), {}, 2), [],
                                       [f_other3,])
         f = it_f.next()
@@ -179,4 +184,53 @@ class Test:
     def test_class_read(self):
         dict_f = {(0,0): 1, (0,1): 0, (1,0): 0, (1,1): 1}
         f = df.DiscreteFunction(range(2), dict_f)
-        assert df.DiscreteFunction.read_from_str(str(f)) == f 
+        assert df.DiscreteFunction.read_from_str(str(f)) == f
+        
+    def test_from_neg1(self):
+        f_other1 = df.DiscreteFunction.read_from_str('f_3_2_17496')
+        f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
+        f_not = df.DiscreteFunction.read_from_str('f_3_1_18')
+        premise = [f_other1, f_other2]
+        new_f = df.DiscreteFunction(range(3), {}, 3)
+        assert_raises(StopIteration, next,
+                      df.commuting_functions_from_negative(new_f, premise, f_not))
+    
+    @nottest    
+    def test_from_neg2(self):
+        f_other1 = df.DiscreteFunction.read_from_str('f_3_2_17496')
+        f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
+        f_not = df.DiscreteFunction.read_from_str('f_3_2_13122')
+        premise = [f_other1, f_other2]
+        new_f = df.DiscreteFunction(range(3), {}, 3)
+        assert_raises(StopIteration, next,
+                      df.commuting_functions_from_negative(new_f, premise, f_not))
+     
+    @nottest   
+    def test_from_neg3(self):
+        f_other1 = df.DiscreteFunction.read_from_str('f_3_1_8')
+        f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
+        f_not = df.DiscreteFunction.read_from_str('f_3_1_18')
+        premise = [f_other1, f_other2]
+        new_f = df.DiscreteFunction(range(3), {}, 3)
+        assert_raises(StopIteration, next,
+                      df.commuting_functions_from_negative(new_f, premise, f_not))
+        
+    def test_from_neg_finds(self):
+        ls_str_funcs = ['f_3_1_13', 'f_3_1_18', 'f_3_1_3', 'f_3_1_0', 
+                'f_3_3_5170638564018', 'f_3_1_8', 'f_3_1_26', 'f_3_1_21']
+        premise = map(df.DiscreteFunction.read_from_str, ls_str_funcs)
+        f_not = df.DiscreteFunction.read_from_str('f_3_2_19458')
+        new_f = df.DiscreteFunction(range(3), {}, 3)
+        f = df.commuting_functions_from_negative(new_f, premise, f_not).next()
+        assert all(df.commute(f, f_other) for f_other in premise)
+        assert df.commute(f, f_not) != True
+        #Found: f_3_3_5170640158341
+        #Time taken:133.394649029
+        
+    def test_prover_holds_identity(self):
+        f_not = df.DiscreteFunction.read_from_str('f_3_1_21')
+        premise = []
+        new_f = df.DiscreteFunction(range(3), {}, 3)
+        assert_raises(StopIteration, next,
+                      df.commuting_functions_from_negative(new_f, premise, f_not))
+        
