@@ -163,14 +163,12 @@ class AE(object):
         no_objs = len(self.cxt.objects)
         ts = time.time()
         ce_dict = {}
-#         dict_info = {}
         cnt = 0
         for imp in self.not_proved:
             cnt += 1
             ts_ce = time.time()
             (unit_conclusion,) = frozenset(imp.conclusion)
             if (wait <= self.resistant_imps[frozenset(imp.premise)][unit_conclusion]):
-#                 dict_info[imp] = ('Tried before', time.time() - ts_ce)
                 info = ('Tried before', time.time() - ts_ce)
             else:
                 ce = self.ce_finder(imp, wait)
@@ -183,12 +181,10 @@ class AE(object):
                         max_wait = max(wait, self.resistant_imps[frozenset(imp.premise)][unit_conclusion])
                     self.resistant_imps[frozenset(imp.premise)][unit_conclusion] = max_wait
                 ce_dict[imp] = ce
-#                 dict_info[imp] = (ce, time.time() - ts_ce)
                 info = (ce, time.time() - ts_ce)
             
             with open(self.dest + '/step{0}ces.txt'.format(self.step-1), 'a') as f:
                 f.write('\tCounter-examples:\n')
-#                 ce_t = dict_info[imp]
                 m = str(imp) + '\n'
                 if info[0] and not isinstance(info[0], str):
                     m += 'Found: ' + str(info[0])
