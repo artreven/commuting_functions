@@ -1,0 +1,8 @@
+*.class
+*.pyc
+*.pyo
+src/ae_2valdomain
+src/ae_2valdomain2
+.project
+.pydevproject
+my_cxt.cxt
