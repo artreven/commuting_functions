@@ -195,7 +195,7 @@ class Test:
         assert_raises(StopIteration, next,
                       df.commuting_functions_from_negative(new_f, premise, f_not))
     
-    @nottest    
+    #@nottest    
     def test_from_neg2(self):
         f_other1 = df.DiscreteFunction.read_from_str('f_3_2_17496')
         f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
@@ -205,7 +205,7 @@ class Test:
         assert_raises(StopIteration, next,
                       df.commuting_functions_from_negative(new_f, premise, f_not))
      
-    @nottest   
+    #@nottest   
     def test_from_neg3(self):
         f_other1 = df.DiscreteFunction.read_from_str('f_3_1_8')
         f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')

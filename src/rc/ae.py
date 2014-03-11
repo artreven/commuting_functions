@@ -183,7 +183,7 @@ class AE(object):
                 ce_dict[imp] = ce
                 info = (ce, time.time() - ts_ce)
             
-            with open(self.dest + '/step{0}ces.txt'.format(self.step-1), 'a') as f:
+            with open(self.dest + '/step{0}ces.txt'.format(self.step), 'a') as f:
                 f.write('\tCounter-examples:\n')
                 m = str(imp) + '\n'
                 if info[0] and not isinstance(info[0], str):
