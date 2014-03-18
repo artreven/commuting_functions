@@ -31,7 +31,7 @@ dest = '../../ae_3valdomain3_from_neg_50/'
 #cxt = fca.Context(table, map(str, funcs), map(str, funcs))
 
 def try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
-    f_initial = df.DiscreteFunction(range(3), {}, arity=3)          
+    f_initial = df.DiscreteFunction(range(3), {}, arity=3) 
     ts = time.time()
     try:
         next(iter_creator(f_initial, ls_f_other, f_not, wait))
@@ -50,6 +50,8 @@ def write_progress(iter_creator, finished, elapsed, path_prog):
     with open(path_prog, 'a') as f:
         m = 'Ran ' + iter_creator.__name__ + '\n'
         m += 'Finished: ' + str(finished) + ', Time taken: ' + str(elapsed) + '\n'
+        if finished:
+            m += 'Done!'
         f.write(m)
         
 def main_check(s_imps, wait, not_proved, proved, step=1):
@@ -92,7 +94,7 @@ def main_check(s_imps, wait, not_proved, proved, step=1):
                 proved.add(unit_imp)
 
 if __name__ == '__main__':
-    import time   
+    import time
     
     cxt = fca.readwrite.read_cxt(path_to_cxt)
     basis = cxt.get_aibasis()
@@ -100,10 +102,10 @@ if __name__ == '__main__':
     for imp in basis:
         for j in (imp.conclusion - imp.premise):
             unit_basis.append(fca.Implication(imp.premise, set((j,))))
-             
+              
     not_proved = set()
     proved = set()
-    main_check(s_imps=unit_basis, wait=10, not_proved=not_proved, proved=proved)
+    main_check(s_imps=unit_basis, wait=200, not_proved=not_proved, proved=proved)
     print 'done'
 
     

@@ -311,29 +311,15 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
                 if to_break:
                     break
                 input_ts = f.dict.keys()
-                result, input_, new_value = close_all_commuting(f, ls_f_other,
-                                                                assignments,
-                                                                input_ts,
-                                                                new_input)
+                result = close_all_commuting(f, ls_f_other,
+                                                   assignments,
+                                                   input_ts,
+                                                   new_input)
                 if result == True:
                     continue
                 elif result == False:
                     f = _try_backtrack(f, assignments, used)
                     break
-                elif result == None:
-                    while True:
-                        f = _pre_backtrack(f, input_, new_value, assignments, used)
-                        (result, input_,
-                         new_value) = close_all_commuting(f, ls_f_other,
-                                                          assignments,
-                                                          f.dict.keys())
-                        if result == True:
-                            break
-                        elif result == False:
-                            to_break = True
-                            break
-                    if to_break:
-                        break
             else:
                 if (not ls_f_not) or all(commute(f, f_not) != True for f_not in ls_f_not):
                     print 'Found', elapsed
@@ -380,30 +366,15 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
         while True:
             for new_input in _get_total_domain(f.domain, f.arity):
                 input_ts = f.dict.keys()
-                result, input_, new_value = close_all_commuting(f, ls_f_other,
-                                                                assignments,
-                                                                input_ts,
-                                                                new_input)
+                result = close_all_commuting(f, ls_f_other,
+                                             assignments,
+                                             input_ts,
+                                             new_input)
                 if result == True:
                     continue
                 elif result == False:
                     f = _try_backtrack(f, assignments, used)
                     break
-                elif result == None:
-                    to_break = False
-                    while True:
-                        f = _pre_backtrack(f, input_, new_value, assignments, used)
-                        (result, input_,
-                         new_value) = close_all_commuting(f, ls_f_other,
-                                                          assignments,
-                                                          f.dict.keys())
-                        if result == True:
-                            break
-                        elif result == False:
-                            to_break = True
-                            break
-                    if to_break:
-                        break
             else:
                 print 'Found', elapsed
                 yield f
@@ -535,21 +506,11 @@ def _get_bindings(f, other_arity):
         d_bindings[result] = possible_inputs
     return d_bindings
 
-def _commute_on(func_row, func_col, input_):
-    """
-    Check if *func_row* and *func_col* commute on *input_* and output row
-    of results of *func_col* and the value of *func_col* on the output column.
-    
-    @note: *func_row* is applied horizontally, *func_col* vertically.
-    """
-    # input = tuple(tuple,.. tuple)
-    out_col = tuple(map(func_row, input_))
-    transposed_input = zip(*input_)
-    out_row = tuple(map(func_col, transposed_input))
+def _try_backtrack(f, assignments, used):
     try:
-        return (func_row(out_row) == func_col(out_col), out_row, func_col(out_col))
-    except ArgError:
-        raise ToDefError(out_row, func_col(out_col))
+        return _backtrack(f, assignments, used)
+    except KeyError:
+        raise StopIteration
 
 def _backtrack(df, assignments, used=set()):
     while True:
@@ -574,6 +535,22 @@ def _backtrack(df, assignments, used=set()):
                     df = DiscreteFunction(df.domain, dict_new, df.arity)
                     continue
                 return DiscreteFunction(df.domain, dict_new, df.arity)
+            
+def _commute_on(func_row, func_col, input_):
+    """
+    Check if *func_row* and *func_col* commute on *input_* and output row
+    of results of *func_col* and the value of *func_col* on the output column.
+    
+    @note: *func_row* is applied horizontally, *func_col* vertically.
+    """
+    # input = tuple(tuple,.. tuple)
+    out_col = tuple(map(func_row, input_))
+    transposed_input = zip(*input_)
+    out_row = tuple(map(func_col, transposed_input))
+    try:
+        return (func_row(out_row) == func_col(out_col), out_row, func_col(out_col))
+    except ArgError:
+        raise ToDefError(out_row, func_col(out_col))
 
 def close_all_commuting(func_row, ls_func_col, assignments, input_ts, new=None):
     """
@@ -583,13 +560,12 @@ def close_all_commuting(func_row, ls_func_col, assignments, input_ts, new=None):
     
     @note: *func_row* is applied horizontally, *ls_func_col* vertically.
     """
-    dict_row_val = dict()
     for func_col in ls_func_col:
         inputs = _get_inputs_with(func_col.arity, input_ts, new)
         for input_ in inputs:
             while True:
                 try:
-                    result, out_row, out_val = _commute_on(func_row, func_col, input_)
+                    result, _, _ = _commute_on(func_row, func_col, input_)
                     break
                 except ArgError as e:
                     input_new = e.input_
@@ -605,16 +581,9 @@ def close_all_commuting(func_row, ls_func_col, assignments, input_ts, new=None):
                     assignments[input_new] = []
                     func_row.dict[input_new] = value_new
                     func_row = DiscreteFunction(func_row.domain, func_row.dict, func_row.arity)
-            try:
-                if dict_row_val[out_row] != out_val:
-                    return (False, None, None)
-            except KeyError:
-                dict_row_val[out_row] = out_val
-            if result:
-                continue
-            else:
-                return (None, out_row, out_val)
-    return (True, None, None)
+            if not result:
+                return False
+    return True
 
 def _get_total_domain(domain, arity):
     """
@@ -670,13 +639,8 @@ def _all_total(f):
                 f = _backtrack(f, assignments)
             except KeyError:
                 raise StopIteration
-            
-def _try_backtrack(f, assignments, used):
-    try:
-        return _backtrack(f, assignments, used)
-    except KeyError:
-        raise StopIteration
 
+###################################BIN################################
 def _pre_backtrack(f, input_, new_value, assignments, used):
     dict_new = f.dict.copy()
     if ((input_, 'bound') in assignments or
@@ -696,7 +660,6 @@ def _pre_backtrack(f, input_, new_value, assignments, used):
         assignments[(input_, 'bound')] = (new_value, old_value)
     return DiscreteFunction(f.domain, dict_new, f.arity)
 
-###################################EXPERIMENTAL################################
 def _commute_on_defined(func_row, func_col):
     """
     Check if *func_row* and *func_col* commute on defined inputs 
