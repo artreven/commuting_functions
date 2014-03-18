@@ -30,96 +30,83 @@ dest = '../../ae_3valdomain3_from_neg_50/'
 #table = [map(lambda x: df.commute(f, x) == True, funcs) for f in funcs]
 #cxt = fca.Context(table, map(str, funcs), map(str, funcs))
 
+def try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
+    f_initial = df.DiscreteFunction(range(3), {}, arity=3)          
+    ts = time.time()
+    try:
+        next(iter_creator(f_initial, ls_f_other, f_not, wait))
+        assert False
+    except df.TimeoutException:
+        finished = False
+        return False
+    except StopIteration:
+        finished = True
+        return True
+    finally:
+        write_progress(iter_creator, finished, time.time() - ts, path_prog)
+        
+
+def write_progress(iter_creator, finished, elapsed, path_prog):
+    with open(path_prog, 'a') as f:
+        m = 'Ran ' + iter_creator.__name__ + '\n'
+        m += 'Finished: ' + finished + ', Time taken: ' + elapsed + '\n'
+        f.write(m)
+        
+def main_check(s_imps, wait, not_proved, proved, step=1):
+    path_prog = './progress{0}.txt'.format(step)
+    with open(path_prog, 'a') as f:
+        f.write('\tNumber of implications to check: {0}\n\n'.format(len(s_imps)))
+    cnt = 0 
+    for unit_imp in s_imps:
+        cnt += 1
+        with open(path_prog, 'a') as f:
+            f.write('\n\n\n\tImplication number {0}:\n'.format(cnt))
+            m = str(unit_imp.premise) + " -> " + str(unit_imp.conclusion) + '\n'
+            f.write(m)
+            
+        ls_f_other = map(df.DiscreteFunction.read_from_str, unit_imp.premise)
+        f_not = df.DiscreteFunction.read_from_str(unit_imp.conclusion.pop())
+        # arity == 3
+        if f_not.arity == 3:
+            iter_creator = df.commuting_functions_batch
+            f_not = [f_not,]
+            if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
+                iter_creator = df.commuting_functions_from_negative
+                if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
+                    not_proved.add(unit_imp)
+                else:
+                    proved.add(unit_imp)
+            else:
+                proved.add(unit_imp)
+        # if arity is less then 3
+        elif f_not.arity < 3:
+            iter_creator = df.commuting_functions_from_negative
+            if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
+                iter_creator = df.commuting_functions_batch
+                f_not = [f_not,]
+                if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
+                    not_proved.add(unit_imp)
+                else:
+                    proved.add(unit_imp)
+            else:
+                proved.add(unit_imp)
+
 if __name__ == '__main__':
-    import logging
-    import time
-    cxt = fca.readwrite.read_cxt(path_to_cxt)
+    import time   
     
-    basis = cxt.get_aibasis()
-    unit_basis = []
-    for imp in basis:
-        ls_f_other = map(df.DiscreteFunction.read_from_str, imp.premise)
-        for j in (imp.conclusion - imp.premise):
-            f_not = df.DiscreteFunction.read_from_str(j)
-            # arity == 3
-            if f_not.arity == 3:
-                # First batch   
-                f_initial = df.DiscreteFunction(f_not.domain, {}, arity=3)          
-                ts_ce = time.time()
-                try:
-                    next(df.commuting_functions_batch(f_initial, ls_f_other,
-                                                      [f_not,], wait=150))
-                    assert False
-                except df.TimeoutException:
-                    pass
-                except StopIteration:
-                    with open('./progress.txt', 'a') as f:
-                        f.write('\tImplication:\n')
-                        m = str(imp.premise) + " -> " + str(j) + '\n'
-                        m += '\nTime taken:{0}\n\n'.format(time.time() - ts_ce)
-                        f.write(m)
-                    continue
-                # If timeout try from negative
-                f_initial = df.DiscreteFunction(f_not.domain, {}, arity=3)
-                ts_ce = time.time()
-                try:
-                    next(df.commuting_functions_from_negative(f_initial,
-                                                              ls_f_other,
-                                                              f_not,
-                                                              wait=150))
-                    assert False
-                except df.TimeoutException:
-                    print "For {0} -> {1} time limit reached".format(map(str,
-                                                                         ls_f_other),
-                                                                     f_not)
-                    assert False
-                except StopIteration:
-                    with open('./progress.txt', 'a') as f:
-                        f.write('\tImplication:\n')
-                        m = str(imp.premise) + " -> " + str(j) + '\n'
-                        m += '\nTime taken:{0}\n\n'.format(time.time() - ts_ce)
-                        f.write(m)
-                    continue
-            # if arity is less then 3
-            elif f_not.arity < 3:
-                # First from negative   
-                f_initial = df.DiscreteFunction(f_not.domain, {}, arity=3)         
-                ts_ce = time.time()
-                try:
-                    next(df.commuting_functions_from_negative(f_initial,
-                                                              ls_f_other,
-                                                              f_not,
-                                                              wait=150))
-                    assert False
-                except df.TimeoutException:
-                    pass
-                except StopIteration:
-                    with open('./progress.txt', 'a') as f:
-                        f.write('\tImplication:\n')
-                        m = str(imp.premise) + " -> " + str(j) + '\n'
-                        m += '\nTime taken:{0}\n\n'.format(time.time() - ts_ce)
-                        f.write(m)
-                    continue
-                # If timeout try from negative
-                f_initial = df.DiscreteFunction(f_not.domain, {}, arity=3)
-                ts_ce = time.time()
-                try:
-                    next(df.commuting_functions_batch(f_initial, ls_f_other,
-                                                      [f_not,], wait=150))
-                    assert False
-                except df.TimeoutException:
-                    print "For {0} -> {1} time limit reached".format(map(str,
-                                                                         ls_f_other),
-                                                                     f_not)
-                    assert False
-                except StopIteration:
-                    with open('./progress.txt', 'a') as f:
-                        f.write('\tImplication:\n')
-                        m = str(imp.premise) + " -> " + str(j) + '\n'
-                        m += '\nTime taken:{0}\n\n'.format(time.time() - ts_ce)
-                        f.write(m)
-                    continue
+    #cxt = fca.readwrite.read_cxt(path_to_cxt)
+    #basis = cxt.get_aibasis()
+    #unit_basis = []
+    #for imp in basis:
+    #    for j in (imp.conclusion - imp.premise):
+    #        unit_basis.append(fca.Implication(imp.premise, set((j,))))
+            
+    not_proved = set()
+    proved = set()
+    #main_check(s_imps=unit_basis, wait=10, not_proved=not_proved, proved=proved)
     print 'done'
+    
+    
 #     ae = rc.ae.AE(cxt, dest, rc.ae.ce_finder, rc.ae.has_attribute, rc.ae.go_on)
 #     dict_wait50 = {'wait': 50}
 #     dict_wait150 = {'wait': 150}
