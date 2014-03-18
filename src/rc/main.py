@@ -94,16 +94,16 @@ def main_check(s_imps, wait, not_proved, proved, step=1):
 if __name__ == '__main__':
     import time   
     
-    #cxt = fca.readwrite.read_cxt(path_to_cxt)
-    #basis = cxt.get_aibasis()
-    #unit_basis = []
-    #for imp in basis:
-    #    for j in (imp.conclusion - imp.premise):
-    #        unit_basis.append(fca.Implication(imp.premise, set((j,))))
+    cxt = fca.readwrite.read_cxt(path_to_cxt)
+    basis = cxt.get_aibasis()
+    unit_basis = []
+    for imp in basis:
+        for j in (imp.conclusion - imp.premise):
+            unit_basis.append(fca.Implication(imp.premise, set((j,))))
             
     not_proved = set()
     proved = set()
-    #main_check(s_imps=unit_basis, wait=10, not_proved=not_proved, proved=proved)
+    main_check(s_imps=unit_basis, wait=10, not_proved=not_proved, proved=proved)
     print 'done'
     
     
