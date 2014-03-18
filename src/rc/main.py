@@ -69,8 +69,8 @@ def main_check(s_imps, wait, not_proved, proved, step=1):
         # arity == 3
         if f_not.arity == 3:
             iter_creator = df.commuting_functions_batch
-            f_not = [f_not,]
-            if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
+            ls_f_not = [f_not,]
+            if not try_prove(ls_f_other, ls_f_not, wait, iter_creator, path_prog):
                 iter_creator = df.commuting_functions_from_negative
                 if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
                     not_proved.add(unit_imp)
@@ -83,8 +83,8 @@ def main_check(s_imps, wait, not_proved, proved, step=1):
             iter_creator = df.commuting_functions_from_negative
             if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
                 iter_creator = df.commuting_functions_batch
-                f_not = [f_not,]
-                if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
+                ls_f_not = [f_not,]
+                if not try_prove(ls_f_other, ls_f_not, wait, iter_creator, path_prog):
                     not_proved.add(unit_imp)
                 else:
                     proved.add(unit_imp)
@@ -100,12 +100,12 @@ if __name__ == '__main__':
     for imp in basis:
         for j in (imp.conclusion - imp.premise):
             unit_basis.append(fca.Implication(imp.premise, set((j,))))
-            
+             
     not_proved = set()
     proved = set()
     main_check(s_imps=unit_basis, wait=10, not_proved=not_proved, proved=proved)
     print 'done'
-    
+
     
 #     ae = rc.ae.AE(cxt, dest, rc.ae.ce_finder, rc.ae.has_attribute, rc.ae.go_on)
 #     dict_wait50 = {'wait': 50}

@@ -112,7 +112,6 @@ class Test:
                                       ls_f_other)
         assert it_f.next()
     
-    @nottest
     def test_no_commuting_duplicates(self):
         dict_f = {(0,0): 0, (0,1): 0, (1,0): 0, (1,1): 0,
                   (2,0): 0, (2,1): 0, (1,2): 0, (0,2): 0,
@@ -195,7 +194,7 @@ class Test:
         assert_raises(StopIteration, next,
                       df.commuting_functions_from_negative(new_f, premise, f_not))
     
-    #@nottest    
+    @nottest    
     def test_from_neg2(self):
         f_other1 = df.DiscreteFunction.read_from_str('f_3_2_17496')
         f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
@@ -205,7 +204,7 @@ class Test:
         assert_raises(StopIteration, next,
                       df.commuting_functions_from_negative(new_f, premise, f_not))
      
-    #@nottest   
+    @nottest   
     def test_from_neg3(self):
         f_other1 = df.DiscreteFunction.read_from_str('f_3_1_8')
         f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')

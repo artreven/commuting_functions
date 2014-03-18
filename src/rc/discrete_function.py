@@ -297,15 +297,19 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
         while elapsed < wait:
             elapsed = time.time() - ts
             for new_input in _get_total_domain(f.domain, f.arity):
+                to_break = False
                 while True:
                     try:
                         if ls_f_not and any(commute(f, f_not) == True for f_not in ls_f_not):
                             f = _try_backtrack(f, assignments, used)
+                            to_break = True
                             continue
                         else:
                             break
                     except ArgError:
                         break
+                if to_break:
+                    break
                 input_ts = f.dict.keys()
                 result, input_, new_value = close_all_commuting(f, ls_f_other,
                                                                 assignments,
@@ -317,7 +321,6 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
                     f = _try_backtrack(f, assignments, used)
                     break
                 elif result == None:
-                    to_break = False
                     while True:
                         f = _pre_backtrack(f, input_, new_value, assignments, used)
                         (result, input_,
@@ -747,3 +750,12 @@ if __name__ == '__main__':
     print 'does not commute with f_not: ', commute(f, f_not) != True
 # Found: f_3_3_6099789120879
 # Time taken:143.337105989
+
+    ls_f_other = map(DiscreteFunction.read_from_str, ['f_3_2_19652',])
+    f_not = DiscreteFunction.read_from_str('f_3_2_19679')
+    f = DiscreteFunction(range(3), {}, arity=3)
+    print map(str, ls_f_other)
+    f = commuting_functions_batch(f, ls_f_other, [f_not,], 10).next()
+    print f
+    print commute(f, DiscreteFunction.read_from_str('f_3_2_19679'))
+    print commute(f, DiscreteFunction.read_from_str('f_3_2_19652'))
