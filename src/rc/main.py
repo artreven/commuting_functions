@@ -49,7 +49,7 @@ def try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
 def write_progress(iter_creator, finished, elapsed, path_prog):
     with open(path_prog, 'a') as f:
         m = 'Ran ' + iter_creator.__name__ + '\n'
-        m += 'Finished: ' + finished + ', Time taken: ' + elapsed + '\n'
+        m += 'Finished: ' + str(finished) + ', Time taken: ' + str(elapsed) + '\n'
         f.write(m)
         
 def main_check(s_imps, wait, not_proved, proved, step=1):
