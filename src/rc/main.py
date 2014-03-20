@@ -68,30 +68,16 @@ def main_check(s_imps, wait, not_proved, proved, step=1):
             
         ls_f_other = map(df.DiscreteFunction.read_from_str, unit_imp.premise)
         f_not = df.DiscreteFunction.read_from_str(unit_imp.conclusion.pop())
-        # arity == 3
-        if f_not.arity == 3:
+        iter_creator = df.commuting_functions_from_negative
+        if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
             iter_creator = df.commuting_functions_batch
             ls_f_not = [f_not,]
-            if not try_prove(ls_f_other, ls_f_not, wait, iter_creator, path_prog):
-                iter_creator = df.commuting_functions_from_negative
-                if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
-                    not_proved.add(unit_imp)
-                else:
-                    proved.add(unit_imp)
-            else:
+            if try_prove(ls_f_other, ls_f_not, wait, iter_creator, path_prog):
                 proved.add(unit_imp)
-        # if arity is less then 3
-        elif f_not.arity < 3:
-            iter_creator = df.commuting_functions_from_negative
-            if not try_prove(ls_f_other, f_not, wait, iter_creator, path_prog):
-                iter_creator = df.commuting_functions_batch
-                ls_f_not = [f_not,]
-                if not try_prove(ls_f_other, ls_f_not, wait, iter_creator, path_prog):
-                    not_proved.add(unit_imp)
-                else:
-                    proved.add(unit_imp)
-            else:
-                proved.add(unit_imp)
+                not_proved.remove(unit_imp)
+        else:
+            proved.add(unit_imp)
+            not_proved.remove(unit_imp)
 
 if __name__ == '__main__':
     import time
@@ -103,9 +89,9 @@ if __name__ == '__main__':
         for j in (imp.conclusion - imp.premise):
             unit_basis.append(fca.Implication(imp.premise, set((j,))))
               
-    not_proved = set()
+    not_proved = set(unit_basis)
     proved = set()
-    main_check(s_imps=unit_basis, wait=200, not_proved=not_proved, proved=proved)
+    main_check(s_imps=unit_basis, wait=100, not_proved=not_proved, proved=proved)
     print 'done'
 
     
