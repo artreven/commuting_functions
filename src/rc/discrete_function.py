@@ -65,12 +65,17 @@ class ToDefError(ArgError):
 class TimeoutException(Exception):
     def __init__(self, wait):
         self.message = 'Waited {0} seconds, timed out.'.format(wait)
+    def __str__(self):
+        return self.message
         
 class NotCommuteException(Exception):
     """
     Thrown when functions do not commute, and no extension possible
     """
-    def __init__(self, matrix):
+    def __init__(self, matrix, f, f_other):
+        self.f = f.copy()
+        self.f_other = f_other
+        self.matrix = matrix
         self.message = 'Functions do not commute on {0}.'.format(matrix)
     def __str__(self):
         return self.message
@@ -322,7 +327,7 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
                 while True:
                     try:
                         if ls_f_not and any(commute(f, f_not) == True for f_not in ls_f_not):
-                            f = _try_backtrack(f, assignments, used)
+                            f = _try_backtrack(f, assignments)
                             to_break = True
                             continue
                         else:
@@ -333,19 +338,19 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
                     break
                 input_ts = f.dict.keys()
                 result = close_all_commuting(f, ls_f_other,
-                                                   assignments,
-                                                   input_ts,
-                                                   new_input)
+                                             assignments,
+                                             input_ts,
+                                             new_input)
                 if result == True:
                     continue
                 elif result == False:
-                    f = _try_backtrack(f, assignments, used)
+                    f = _try_backtrack(f, assignments)
                     break
             else:
                 if (not ls_f_not) or all(commute(f, f_not) != True for f_not in ls_f_not):
                     print 'Found', elapsed
                     yield f
-                f = _try_backtrack(f, assignments, used)
+                f = _try_backtrack(f, assignments)
         else:
             raise TimeoutException(wait)
     
@@ -361,9 +366,8 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
     if not all(f_other.is_total() for f_other in ls_f_other):
         raise Exception, 'Second argument has to be a list of TOTAL functions.'
     assignments = OrderedDict()
-    used = set()
     
-    return (new_f
+    return (new_f.copy()
             for pf in construct(f, ls_f_other, ls_f_not)
             for new_f in _all_total(pf))
             
@@ -399,16 +403,12 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
     d_bindings = _get_bindings(f_not, f.arity)
     # binded inputs (b_inp) are the following: f_not(f(binded_inp)) = f(_input),
     # where f is new_func. holds for every binded_inp in binded_inputs_ls.
-    # TODO: maybe choose binding wisely (for example, longest)
     ts = time.time()
-    #old_f = f.copy()
     while d_bindings:
         new_f_input, new_f_binded_inputs_ls = d_bindings.popitem()
         domain = f.domain[:]
         basic_f = f.copy()
         while domain:
-            if time.time()-ts > wait:
-                raise TimeoutException(wait)
             # Pick up a value from domain and assign it to new_func(new_func_input)
             new_f_output = basic_f.dict[new_f_input] = domain.pop()
             try:
@@ -417,15 +417,14 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
                 continue
                     
             if not new_f_output in f_not.inverse_dict:
-                iter_f = (ans_f
+                iter_f = (ans_f.copy()
                           for pf in construct_commuting(closed_basic_f, ls_f_other,
-                                                        OrderedDict(),
-                                                        set())
+                                                        OrderedDict(), wait)
                           for ans_f in _all_total(pf))
                 for ans_f in iter_f:
                     yield ans_f
                 else:
-                    break
+                    continue
              
             f_not_binded_inputs = f_not.inverse_dict[new_f_output]
             # try to define output from any binded input so that it is not equal to f_not_input
@@ -445,40 +444,58 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
                 s_def_to_not_commute = _match_ls(ls_binded_inps, new_func_outs,
                                                  s_noncom_defs)
                 for binded_outs in s_def_to_not_commute:
+                    elapsed = time.time()-ts 
+                    if elapsed > wait:
+                        raise TimeoutException(wait)
                     binded_f.dict.update(zip(ls_binded_inps, binded_outs))
                     try:
                         closed_binded_f = get_closure_on_defined(binded_f, ls_f_other)
                     except NotCommuteException:
                         continue
-                    iter_f = (ans_f
+                    iter_f = (ans_f.copy()
                               for pf in construct_commuting(closed_binded_f,
                                                             ls_f_other,
                                                             OrderedDict(),
-                                                            set())
+                                                            wait - elapsed)
                               for ans_f in _all_total(pf))
                     for ans_f in iter_f:
+                        print 'Found', elapsed
                         yield ans_f
                     else:
-                        break
+                        continue
 
-def construct_commuting(f, ls_f_other, assignments, used):
-    while True:
+def construct_commuting(f, ls_f_other, assignments, wait=float('inf')):
+    ts = time.time()
+    old_fs = []
+    while (time.time() - ts) < wait:
         for new_input in _get_total_domain(f.domain, f.arity):
-            input_ts = f.dict.keys()
-            result = close_all_commuting(f, ls_f_other,
-                                         assignments,
-                                         input_ts,
-                                         new_input)
-            if result == True:
-                continue
-            elif result == False:
-                f = _try_backtrack(f, assignments, used)
+            to_repeat = False
+            while True:
+                if not new_input in f.dict:
+                    assignments[new_input] = f.domain[-1:0:-1]
+                    f.dict[new_input] = f.domain[0]
+                    old_fs.append(f.copy())
+                try:
+                    f = get_closure_on_defined(f, ls_f_other, new_input)
+                except NotCommuteException: 
+                    try:
+                        f = old_fs.pop()
+                    except IndexError:
+                        raise StopIteration
+                    to_repeat = True
+                    f = _try_backtrack(f, assignments)
+                    old_fs.append(f.copy())
+                else:
+                    break
+            if to_repeat:
                 break
         else:
             yield f
-            f = _try_backtrack(f, assignments, used)
+            f = _try_backtrack(f, assignments)
+    else:
+        raise TimeoutException(wait)
             
-def get_closure_on_defined(f, ls_f_other):
+def get_closure_on_defined(f, ls_f_other, new=None):
     """
     Close wrt ls_f_other using inputs on which f is defined.
     
@@ -491,20 +508,19 @@ def get_closure_on_defined(f, ls_f_other):
             for matrix in s_matrices:
                 try:
                     if not _commute_on(f, f_other, matrix)[0]:
-                        raise NotCommuteException(matrix)
+                        raise NotCommuteException(matrix, f, f_other)
                 except ToDefError as e:
                     f.dict[e.input_] = e.value
                     new_inputs.add(e.input_)
         return f
-    
     new_f = f.copy()
     new_inputs = set()
-    new_f = get_new_closure_on(new_f, ls_f_other, new_inputs)
+    new_f = get_new_closure_on(new_f, ls_f_other, new_inputs, new)
     while new_inputs:
         next_new = new_inputs.pop()
         new_f = get_new_closure_on(new_f, ls_f_other, new_inputs, next_new)
     return new_f
-            
+
 ###################################AUX FUNCTIONS################################
 def _match_ls(refs, ls, s_ls):
     """
@@ -549,27 +565,23 @@ def _get_bindings(f, other_arity):
         d_bindings[result] = possible_inputs
     return d_bindings
 
-def _try_backtrack(f, assignments, used):
+def _try_backtrack(f, assignments):
     try:
-        return _backtrack(f, assignments, used)
+        return _backtrack(f, assignments)
     except KeyError:
         raise StopIteration
 
-def _backtrack(df, assignments, used=set()):
+def _backtrack(df, assignments):
     while True:
         latest_input, values = assignments.popitem()
-        dict_new = df.dict.copy()
-        if latest_input in dict_new:
-            del dict_new[latest_input]
+        dict_new = df.dict
         try:
             dict_new[latest_input] = values.pop()
         except IndexError:
+            del dict_new[latest_input]
             df = DiscreteFunction(df.domain, dict_new, df.arity)
         else:
             assignments[latest_input] = values
-            if used and frozenset(dict_new.items()) in used:
-                df = DiscreteFunction(df.domain, dict_new, df.arity)
-                continue
             return DiscreteFunction(df.domain, dict_new, df.arity)
             
 def _commute_on(func_row, func_col, input_):
@@ -721,7 +733,6 @@ def old_commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf'
     d_bindings = _get_bindings(f_not, f.arity)
     # binded inputs (b_inp) are the following: f_not(f(binded_inp)) = f(_input),
     # where f is new_func. holds for every binded_inp in binded_inputs_ls.
-    # TODO: maybe choose binding wisely (for example, longest)
     old_dict = f.dict.copy()
     ts = time.time()
     elapsed = 0            
@@ -908,9 +919,91 @@ def count_iter(iter_):
 ##################################### M A I N ##################################        
 if __name__ == '__main__':
     import cProfile
+    
+    #To check
+    #     set(['f_3_3_7623079246341', 'f_3_1_21', 'f_3_1_3']) -> set(['f_3_3_7538621575365'])
+    # Timeout both
     f = DiscreteFunction(range(3), dict(), 3)
-    f_other = DiscreteFunction.read_from_str('f_3_3_7625389238847')
-    f_not = DiscreteFunction.read_from_str('f_3_3_7625389418181')
-    it_f = commuting_functions_from_negative(f, [f_other,], f_not)
-    cProfile.run('f = next(it_f)')
+    ls_f_other = map(DiscreteFunction.read_from_str, ['f_3_3_7623079246341', 'f_3_1_21', 'f_3_1_3'])
+    f_not = DiscreteFunction.read_from_str('f_3_3_7538621575365')
+    it_f = commuting_functions_from_negative(f, ls_f_other, f_not)
+    ts = time.time()
+    try:
+        f = next(it_f)
+    except StopIteration:
+        print "hit StopIteration"
+        print 'Time taken: ', time.time() - ts
+    print f
+    
+    #     set(['f_3_1_21', 'f_3_2_18603', 'f_3_3_7570117242603']) -> set(['f_3_3_6088926820179'])
+    # from_negative timeout, batch finished in 3 secs
+    ls_f_other = map(DiscreteFunction.read_from_str, ['f_3_1_21', 'f_3_2_18603', 'f_3_3_7570117242603'])
+    f_not = DiscreteFunction.read_from_str('f_3_3_6088926820179')
+    f = DiscreteFunction(range(3), dict(), 3)
+    it_f = commuting_functions_batch(f, ls_f_other, [f_not,])
+    ts = time.time()
+    try:
+        f = next(it_f)
+    except StopIteration:
+        print "hit StopIteration"
+        print 'Time taken: ', time.time() - ts
+    f = DiscreteFunction(range(3), dict(), 3)
+    it_f = commuting_functions_from_negative(f, ls_f_other, f_not)
+    ts = time.time()
+    try:
+        f = next(it_f)
+    except StopIteration:
+        print "hit StopIteration"
+        print 'Time taken: ', time.time() - ts
+    
+#     set(['f_3_2_9832', 'f_3_1_0', 'f_3_1_21', 'f_3_1_13']) -> set(['f_3_2_16389'])
+    f = DiscreteFunction(range(3), dict(), 3)
+    ls_f_other = map(DiscreteFunction.read_from_str, ['f_3_2_9832', 'f_3_1_0', 'f_3_1_21', 'f_3_1_13'])
+    f_not = DiscreteFunction.read_from_str('f_3_2_16389')
+    it_f = commuting_functions_from_negative(f, ls_f_other, f_not)
+    ts = time.time()
+    try:
+        f = next(it_f)
+    except StopIteration:
+        print "hit StopIteration"
+        print 'Time taken: ', time.time() - ts
+    print f
+
+    assert False
+    
+    ls_str_funcs = ['f_3_1_13', 'f_3_1_18', 'f_3_1_3', 'f_3_1_0', 
+                    'f_3_3_5170638564018', 'f_3_1_8', 'f_3_1_26', 'f_3_1_21']
+    premise = map(DiscreteFunction.read_from_str, ls_str_funcs)
+    f_not = DiscreteFunction.read_from_str('f_3_2_19458')
+    f_needed = DiscreteFunction.read_from_str('f_3_3_5170640158341')
+    print f_needed.output_dict()
+    print all(commute(f_needed, f_other) == True for f_other in premise)
+    print commute(f_needed, f_not) != True
+    
+    new_f = DiscreteFunction(range(3), {}, 3)
+    f = next(commuting_functions_from_negative(new_f, premise, f_not))
+    print f
+    print all(commute(f, f_other) == True for f_other in premise)
+    print commute(f, f_not) != True
+    #Found: f_3_3_5170640158341
+    #Time taken:133.394649029
+
+    #set(['f_3_1_0', 'f_3_1_21', 'f_3_2_2187', 'f_3_2_17496', 'f_3_1_18', 
+    #'f_3_2_13122']) -> set(['f_3_2_3168'])    
+    f = DiscreteFunction(range(3), dict(), 3)
+    ls_f_other = map(DiscreteFunction.read_from_str, ['f_3_1_0', 'f_3_1_21',\
+    'f_3_2_2187', 'f_3_2_17496', 'f_3_1_18', 'f_3_2_13122'])
+    f_not = DiscreteFunction.read_from_str('f_3_2_3168')
+    it_f = commuting_functions_from_negative(f, ls_f_other, f_not)
+    cProfile.run('''try: f = next(it_f)
+except StopIteration: print "hit StopIteration"''')
+    print f
+    
+    f = DiscreteFunction(range(3), dict(), 3)
+    ls_f_other = map(DiscreteFunction.read_from_str,
+                     ['f_3_1_3', 'f_3_1_21', 'f_3_3_7570117242603'])
+    f_not = DiscreteFunction.read_from_str('f_3_3_7538621575365')
+    it_f = commuting_functions_from_negative(f, ls_f_other, f_not)
+    cProfile.run('''try: f = next(it_f)
+except StopIteration: print "hit StopIteration"''')
     print f

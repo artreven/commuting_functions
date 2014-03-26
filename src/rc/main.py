@@ -91,7 +91,7 @@ if __name__ == '__main__':
               
     not_proved = set(unit_basis)
     proved = set()
-    main_check(s_imps=unit_basis, wait=100, not_proved=not_proved, proved=proved)
+    main_check(s_imps=unit_basis, wait=200, not_proved=not_proved, proved=proved)
     print 'done'
 
     

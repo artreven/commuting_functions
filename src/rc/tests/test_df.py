@@ -123,12 +123,12 @@ class Test:
         f_other2 = df.DiscreteFunction(range(3), dict_f)
         ls_f_other = [f_other1, f_other2]
         it_f = df.commuting_functions_batch(df.DiscreteFunction(range(3), {}, 2),
-                                      ls_f_other)
+                                            ls_f_other)
         ls_fs = list(it_f)
         for f in ls_fs:
             if ls_fs.count(f) > 1:
                 print f
-        s_fs = set(ls_fs)
+        s_fs = set(ls_fs)  
         print len(s_fs), len(ls_fs)
         assert len(s_fs) == len(ls_fs)
         
@@ -194,7 +194,7 @@ class Test:
         assert_raises(StopIteration, next,
                       df.commuting_functions_from_negative(new_f, premise, f_not))
     
-    @nottest    
+ 
     def test_from_neg2(self):
         f_other1 = df.DiscreteFunction.read_from_str('f_3_2_17496')
         f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
@@ -204,7 +204,7 @@ class Test:
         assert_raises(StopIteration, next,
                       df.commuting_functions_from_negative(new_f, premise, f_not))
      
-    @nottest   
+  
     def test_from_neg3(self):
         f_other1 = df.DiscreteFunction.read_from_str('f_3_1_8')
         f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
