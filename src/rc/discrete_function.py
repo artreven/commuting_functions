@@ -89,6 +89,12 @@ class NoOutputException(Exception):
         self.message = 'No way to commute: function does no output {0} for any input.'.format(val)
     def __str__(self):
         return self.message
+    
+class StopSignalException(Exception):
+    def __init__(self):
+        self.message = 'Stop signal is set.'
+    def __str__(self):
+        return self.message
 
 ############################CLASS#########################
 class DiscreteFunction(object):
@@ -309,7 +315,8 @@ def commuting_functions(f, ls_f_other, ls_f_not=[], wait=float('inf')):
             for pf in construct(f, ls_f_other, ls_f_not)
             for f in _all_total(pf))
 
-def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
+def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf'),
+                              stop_signal=None):
     """
     Iterator over all functions built from partial *f* and commuting with all
     (total) functions from *ls_f_other* and not commuting with all *ls_f_not*.
@@ -320,7 +327,7 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
     def construct(f, ls_f_other, ls_f_not):
         ts = time.time()
         elapsed = 0       
-        while elapsed < wait:
+        while elapsed < wait and not (stop_signal and stop_signal.is_set()):
             elapsed = time.time() - ts
             for new_input in _get_total_domain(f.domain, f.arity):
                 to_break = False
@@ -352,7 +359,10 @@ def commuting_functions_batch(f, ls_f_other, ls_f_not=[], wait=float('inf')):
                     yield f
                 f = _try_backtrack(f, assignments)
         else:
-            raise TimeoutException(wait)
+            if (time.time() - ts) >= wait:
+                raise TimeoutException(wait)
+            if stop_signal.is_set():
+                raise StopSignalException
     
     assert all(f.domain == f_other.domain for f_other in ls_f_other)
     if not ls_f_other:
@@ -378,7 +388,8 @@ def get_random_function(domain, arity):
     return DiscreteFunction(domain, dict_f, arity)
 
 ##################################IN PROGRESS##################################
-def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
+def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf'),
+                                      stop_signal=None):
     """
     Iterator over all functions built from partial *f* and commuting with all
     (total) functions from *ls_f_other* and not commuting with *f_not*.
@@ -419,7 +430,8 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
             if not new_f_output in f_not.inverse_dict:
                 iter_f = (ans_f.copy()
                           for pf in construct_commuting(closed_basic_f, ls_f_other,
-                                                        OrderedDict(), wait)
+                                                        OrderedDict(), wait,
+                                                        stop_signal)
                           for ans_f in _all_total(pf))
                 for ans_f in iter_f:
                     yield ans_f
@@ -447,6 +459,8 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
                     elapsed = time.time()-ts 
                     if elapsed > wait:
                         raise TimeoutException(wait)
+                    elif stop_signal and stop_signal.is_set():
+                        raise StopSignalException
                     binded_f.dict.update(zip(ls_binded_inps, binded_outs))
                     try:
                         closed_binded_f = get_closure_on_defined(binded_f, ls_f_other)
@@ -456,7 +470,8 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
                               for pf in construct_commuting(closed_binded_f,
                                                             ls_f_other,
                                                             OrderedDict(),
-                                                            wait - elapsed)
+                                                            wait - elapsed,
+                                                            stop_signal)
                               for ans_f in _all_total(pf))
                     for ans_f in iter_f:
                         print 'Found', elapsed
@@ -464,10 +479,11 @@ def commuting_functions_from_negative(f, ls_f_other, f_not, wait=float('inf')):
                     else:
                         continue
 
-def construct_commuting(f, ls_f_other, assignments, wait=float('inf')):
+def construct_commuting(f, ls_f_other, assignments, wait=float('inf'),
+                        stop_signal=None):
     ts = time.time()
     old_fs = []
-    while (time.time() - ts) < wait:
+    while (time.time() - ts) < wait and not (stop_signal and stop_signal.is_set()):
         for new_input in _get_total_domain(f.domain, f.arity):
             to_repeat = False
             while True:
@@ -493,7 +509,10 @@ def construct_commuting(f, ls_f_other, assignments, wait=float('inf')):
             yield f
             f = _try_backtrack(f, assignments)
     else:
-        raise TimeoutException(wait)
+        if (time.time() - ts) >= wait:
+            raise TimeoutException(wait)
+        if stop_signal.is_set():
+            raise StopSignalException
             
 def get_closure_on_defined(f, ls_f_other, new=None):
     """
