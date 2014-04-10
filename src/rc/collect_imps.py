@@ -17,8 +17,6 @@ def read_imps(path_to_file):
                 premise, conclusion = line.split('->')
                 premise = eval(premise)
                 conclusion = eval(conclusion)
-                premise = set(map(df.DiscreteFunction.read_from_str, premise))
-                conclusion = set(map(df.DiscreteFunction.read_from_str, conclusion))
                 imp = fca.Implication(premise, conclusion)
                 print imp
                 ls_imps.append(imp)
