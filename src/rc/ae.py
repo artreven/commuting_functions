@@ -104,8 +104,11 @@ class AE(object):
         f.close()
         with open(self.dest + '/not_proved.txt', 'w') as f:
             f.write('Not Proved Implications:\n')
-            for imp in self.not_proved:
-                f.write(str(imp) + '\n')
+            if not self.not_proved:
+                f.write('None\n')
+            else:
+                for imp in self.not_proved:
+                    f.write(str(imp) + '\n')
         f.close()
         
     def _output_cxt(self):
@@ -170,6 +173,7 @@ class AE(object):
             (unit_conclusion,) = frozenset(imp.conclusion)
             if (wait <= self.resistant_imps[frozenset(imp.premise)][unit_conclusion]):
                 info = ('Tried before', time.time() - ts_ce)
+                ce = None
             else:
                 ce = self.ce_finder(imp, wait)
                 if hasattr(ce, '__len__') and len(ce) == 2:

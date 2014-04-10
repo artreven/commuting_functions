@@ -3,9 +3,8 @@ Created on Jan 13, 2014
 
 @author: artreven
 '''
-import copy
 import threading
-import Queue
+import time
 
 import fca
 import fca.readwrite
@@ -19,18 +18,6 @@ def read_cxts():
     cxt_f2 = fca.read_csv(path_f2)
     cxt_f3a = fca.read_csv(path_f3a) 
     cxt_fdanilchenko = fca.read_csv(path_fdanilchenko)
-
-path_to_cxt = 'my_cxt.cxt'
-dest = '../../ae_3valdomain3_from_neg_50/'
-#f10 = df.DiscreteFunction(range(2), {(0,): 0, (1,): 0})
-#f11 = df.DiscreteFunction(range(2), {(0,): 0, (1,): 1})
-#f12 = df.DiscreteFunction(range(2), {(0,): 1, (1,): 0})
-#f13 = df.DiscreteFunction(range(2), {(0,): 1, (1,): 1})
-#f_t105 = df.DiscreteFunction(range(2), {(0,0,0): 0, (0,0,1): 1, (0,1,0): 1, (0,1,1): 0,
-#                                        (1,0,0): 1, (1,0,1): 0, (1,1,0): 0, (1,1,1): 1})
-#funcs = [f10, f11, f12, f13]#, f_t105]
-#table = [map(lambda x: df.commute(f, x) == True, funcs) for f in funcs]
-#cxt = fca.Context(table, map(str, funcs), map(str, funcs))
 
 def try_prove(finished, ls_f_other, f_not, wait, iter_creator, path_prog, stop_signal):
     f_initial = df.DiscreteFunction(range(3), {}, arity=3) 
@@ -82,14 +69,13 @@ def main_check(s_imps, wait, not_proved, proved, step=1):
             proved.add(unit_imp)
             not_proved.remove(unit_imp)
                        
-def parallel_check(s_imps, wait, not_proved, proved, step=1):
+def parallel_check(s_imps, wait, step=1):
     path_prog = './progress{0}.txt'.format(step)
     with open(path_prog, 'a') as f:
         f.write('\tNumber of implications to check: {0}\n\n'.format(len(s_imps)))
     cnt = 0
     signal = threading.Event()
     for unit_imp in s_imps:
-        print 'next imp'
         cnt += 1
         with open(path_prog, 'a') as f:
             f.write('\n\n\n\tImplication number {0}:\n'.format(cnt))
@@ -113,24 +99,34 @@ def parallel_check(s_imps, wait, not_proved, proved, step=1):
         t_neg.join()
         t_batch.join()
         signal.clear()
-        if finished:
-            proved.add(unit_imp)
-            not_proved.remove(unit_imp)
-        print 'imp done'
+
+# path_to_cxt = 'my_cxt.cxt'
+# dest = '../ae_2valdomain_addbyone232/'
+# f_2_1_0 = df.DiscreteFunction.read_from_str('f_2_1_0')
+# f_2_1_2 = df.DiscreteFunction.read_from_str('f_2_1_2')
+# f_2_2_14 = df.DiscreteFunction.read_from_str('f_2_2_14')
+# f_2_3_150 = df.DiscreteFunction.read_from_str('f_2_3_150')
+# f_2_3_232 = df.DiscreteFunction.read_from_str('f_2_3_232')
+# funcs = [f_2_1_0, f_2_1_2, f_2_3_232]#, f_2_3_150]#, f_2_3_232]#, f13]
+# table = [map(lambda x: df.commute(f, x) == True, funcs) for f in funcs]
+# cxt = fca.Context(table, map(str, funcs), map(str, funcs))
 
 if __name__ == '__main__':
     import time
-    
-    cxt = fca.readwrite.read_cxt(path_to_cxt)
-    basis = cxt.get_aibasis()
-    unit_basis = []
-    for imp in basis[:10]:
-        for j in (imp.conclusion - imp.premise):
-            unit_basis.append(fca.Implication(imp.premise, set((j,))))
-              
-    not_proved = set(unit_basis)
+    from collect_imps import read_imps
+     
+#     cxt = fca.readwrite.read_cxt(path_to_cxt)
+#     basis = cxt.get_aibasis()
+#     unit_basis = []
+#     for imp in basis[:10]:
+#         for j in (imp.conclusion - imp.premise):
+#             unit_basis.append(fca.Implication(imp.premise, set((j,))))
+               
+    ls_imps = read_imps('./not_done_imps')
+    s_imps = set(ls_imps)
+    not_proved = set(s_imps)
     proved = set()
-    parallel_check(s_imps=unit_basis, wait=300, not_proved=not_proved, proved=proved)
+    parallel_check(s_imps=s_imps, wait=None, step=33)
     print 'done'
 
     
