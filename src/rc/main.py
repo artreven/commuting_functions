@@ -25,7 +25,7 @@ def try_prove(finished, ls_f_other, f_not, wait, iter_creator, path_prog, stop_s
     try:
         next(iter_creator(f_initial, ls_f_other, f_not, wait, stop_signal))
         assert False
-    except df.TimeoutException, df.StopSignalException:
+    except (df.TimeoutException, df.StopSignalException):
         finished = False
         return False
     except StopIteration:
@@ -40,7 +40,7 @@ def write_progress(iter_creator, finished, elapsed, path_prog):
         m = 'Ran ' + iter_creator.__name__ + '\n'
         m += 'Finished: ' + str(finished) + ', Time taken: ' + str(elapsed) + '\n'
         if finished:
-            m += 'Done!'
+            m += 'Done!\n'
         f.write(m)
         
 def main_check(s_imps, wait, not_proved, proved, step=1):
@@ -85,13 +85,14 @@ def parallel_check(s_imps, wait, step=1):
         ls_f_other = map(df.DiscreteFunction.read_from_str, unit_imp.premise)
         f_not = df.DiscreteFunction.read_from_str(unit_imp.conclusion.pop())
         ls_f_not = [f_not,]
-        finished = False
+        finished1 = False
+        finished2 = False
         t_batch = threading.Thread(target=try_prove,
-                                   args=(finished, ls_f_other, ls_f_not, wait,
+                                   args=(finished1, ls_f_other, ls_f_not, wait,
                                          df.commuting_functions_batch,
                                          path_prog, signal))
         t_neg = threading.Thread(target=try_prove,
-                                 args=(finished, ls_f_other, f_not, wait,
+                                 args=(finished2, ls_f_other, f_not, wait,
                                        df.commuting_functions_from_negative,
                                        path_prog, signal))
         t_neg.start()
