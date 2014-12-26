@@ -25,9 +25,7 @@ class AE(object):
         @param cxt: initial cxt to start with
         @param dest: proposed destination for current AE. May be changed if 
         already exists.
-        @param ce_finder: should output dictionary {implication: counter-example}.
-        Every counter example should have method has_attribute accepting attributes
-        from the context.
+        @param ce_finder: should take implication and output counterexample or None.
         @param prover: should output (proved, not_proved)
         @param has_attribute: function taking CE and attribute and return boolean value
         @ivar proved: proved implications from current basis
@@ -311,7 +309,7 @@ def has_attribute(dfunc, att):
     else:
         assert False
         
-def go_on(ae, wait=None, max_arity=4):
+def go_on_lower_neighrbors(ae, wait=None, max_arity=4):
     domain = df.DiscreteFunction.read_from_str(ae.cxt.objects[0]).domain
     dict_new_objects = {}
     dict_info = {}
@@ -368,6 +366,76 @@ def go_on(ae, wait=None, max_arity=4):
         f.write('\tNew objects:\n')
         for int_, ce_t in dict_info.items():
             m = 'Intent: ' + str(int_) + '\n'
+            if ce_t[0] and not isinstance(ce_t[0], str):
+                m += 'Found: ' + str(ce_t[0])
+            else:
+                m += str(ce_t[0])
+            m += '\nTime taken:{0}\n\n'.format(ce_t[1])
+            f.write(m)
+        f.write('\n\n\n\t Context:\n' + str(ae.cxt))
+    return new_objects
+
+def go_on(ae, wait=None, max_arity=4):
+    domain = df.DiscreteFunction.read_from_str(ae.cxt.objects[0]).domain
+    dict_new_objects = {}
+    dict_info = {}
+    old_attributes = set(ae.cxt.attributes)
+    sorted_concepts = sorted(ae.cxt.concepts,
+                             key=lambda x: x.intent,
+                             reverse=True) # largest intent first
+    for c in sorted_concepts:
+        ts_c = time.time()
+        intent = c.intent
+        t_intent = tuple(intent)
+        t_concept = (t_intent, tuple(c.extent))
+        if (wait <= ae.resistant_ints[t_intent]):
+            dict_info[t_concept] = ('Tried before with same or bigger time constraint',
+                                    time.time() - ts_c)
+            continue
+        if any(set(done_intent) > intent
+               for done_intent in dict_new_objects.keys()):
+            dict_info[t_concept] = ('Bigger intent done before',
+                                    time.time() - ts_c)
+            continue
+        fs_extent = map(df.DiscreteFunction.read_from_str, c.extent)
+        ls_f_other = map(df.DiscreteFunction.read_from_str, intent)
+        ls_f_not = map(df.DiscreteFunction.read_from_str,
+                       old_attributes - intent)
+        for arity in range(1, max_arity):
+            f_initial = df.DiscreteFunction(domain, {}, arity)
+            iter_f = df.commuting_functions_batch(f_initial, ls_f_other, ls_f_not, wait)
+            useful = False
+            while not useful:
+                try:
+                    f = next(iter_f)
+                except StopIteration:
+                    break
+                except df.TimeoutException:
+                    #timeout = True
+                    break
+                else:
+                    lower_neighbor = (f.self_commuting() and (set(c.extent) -
+                                                              set(c.intent)))
+                    upper_neighbor = (set(c.extent) <= set(c.intent) and
+                                      not f.self_commuting())
+                    useful = lower_neighbor or upper_neighbor
+            if useful:
+                dict_new_objects[t_intent] = f
+                break
+        if not useful:
+            f = None
+            max_wait = max(wait, ae.resistant_imps[t_intent])
+            ae.resistant_ints[t_intent] = max_wait
+        dict_info[t_concept] = (f, time.time() - ts_c)
+    
+    new_objects = dict_new_objects.values()
+    _add_objects(new_objects, ae)
+    with open(ae.dest + '/step{0}new_objs.txt'.format(ae.step-1), 'w') as f:
+        f.write('\tNew objects:\n')
+        for concept, ce_t in dict_info.items():
+            (int_, ext_) = concept
+            m = 'Intent: ' + str(int_) + '\n'
+            m += 'Extent: ' + str(ext_) + '\n'
             if ce_t[0] and not isinstance(ce_t[0], str):
                 m += 'Found: ' + str(ce_t[0])
             else:

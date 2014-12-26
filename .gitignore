@@ -1,14 +1,7 @@
 *.class
 *.pyc
 *.pyo
-src/ae_2valdomain
-src/ae_2valdomain2
 .project
 .pydevproject
-my_cxt.cxt
-src/ae_2valdomain_addbyone
-src/ae_2valdomain_addbyone2
-src/ae_2valdomain_addbyone232
-src/left_imps_fromfirst10000
-src/not_done_imps
-src/progress28.txt
+src/
+etc/

@@ -7,8 +7,8 @@ Created on Jan 24, 2014
 '''
 from nose.tools import assert_raises, nottest  # @UnresolvedImport
 
-import rc.discrete_function
-df = rc.discrete_function
+import p_clones.discrete_function
+df = p_clones.discrete_function
 
 class Test:
 
@@ -39,7 +39,7 @@ class Test:
     #@nottest
     def test_const_arity(self):
         dict_f = {(0,0): 0, (0,1): 0, (1,0): 1, (1,1,1): 1}
-        assert_raises(AssertionError, df.DiscreteFunction, range(2), dict_f)
+        assert_raises(Exception, df.DiscreteFunction, range(2), dict_f)
         
     def test_totality(self):
         dict_f = {(0,0): 0, (0,1): 0, (1,0): 1}
@@ -160,8 +160,8 @@ class Test:
                   (2,0): 0, (2,1): 0, (1,2): 1, (0,2): 1,
                   (2,2): 0}
         f_other3 = df.DiscreteFunction(range(3), dict_f)
-        it_f = df.commuting_functions(df.DiscreteFunction(range(3), {}, 2), [],
-                                      [f_other3,])
+        it_f = df.commuting_functions_from_negative(df.DiscreteFunction(range(3), {}, 2), [],
+                                                    f_other3)
         f = it_f.next()
         assert df.commute(f, f_other3) != True
         
@@ -183,12 +183,12 @@ class Test:
     def test_class_read(self):
         dict_f = {(0,0): 1, (0,1): 0, (1,0): 0, (1,1): 1}
         f = df.DiscreteFunction(range(2), dict_f)
-        assert df.DiscreteFunction.read_from_str(str(f)) == f
+        assert df.DiscreteFunction.str2df(str(f)) == f
         
     def test_from_neg1(self):
-        f_other1 = df.DiscreteFunction.read_from_str('f_3_2_17496')
-        f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
-        f_not = df.DiscreteFunction.read_from_str('f_3_1_18')
+        f_other1 = df.DiscreteFunction.str2df('f_3_2_17496')
+        f_other2 = df.DiscreteFunction.str2df('f_3_1_21')
+        f_not = df.DiscreteFunction.str2df('f_3_1_18')
         premise = [f_other1, f_other2]
         new_f = df.DiscreteFunction(range(3), {}, 3)
         assert_raises(StopIteration, next,
@@ -196,9 +196,9 @@ class Test:
     
  
     def test_from_neg2(self):
-        f_other1 = df.DiscreteFunction.read_from_str('f_3_2_17496')
-        f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
-        f_not = df.DiscreteFunction.read_from_str('f_3_2_13122')
+        f_other1 = df.DiscreteFunction.str2df('f_3_2_17496')
+        f_other2 = df.DiscreteFunction.str2df('f_3_1_21')
+        f_not = df.DiscreteFunction.str2df('f_3_2_13122')
         premise = [f_other1, f_other2]
         new_f = df.DiscreteFunction(range(3), {}, 3)
         assert_raises(StopIteration, next,
@@ -206,9 +206,9 @@ class Test:
      
   
     def test_from_neg3(self):
-        f_other1 = df.DiscreteFunction.read_from_str('f_3_1_8')
-        f_other2 = df.DiscreteFunction.read_from_str('f_3_1_21')
-        f_not = df.DiscreteFunction.read_from_str('f_3_1_18')
+        f_other1 = df.DiscreteFunction.str2df('f_3_1_8')
+        f_other2 = df.DiscreteFunction.str2df('f_3_1_21')
+        f_not = df.DiscreteFunction.str2df('f_3_1_18')
         premise = [f_other1, f_other2]
         new_f = df.DiscreteFunction(range(3), {}, 3)
         assert_raises(StopIteration, next,
@@ -217,8 +217,8 @@ class Test:
     def test_from_neg_finds(self):
         ls_str_funcs = ['f_3_1_13', 'f_3_1_18', 'f_3_1_3', 'f_3_1_0', 
                 'f_3_3_5170638564018', 'f_3_1_8', 'f_3_1_26', 'f_3_1_21']
-        premise = map(df.DiscreteFunction.read_from_str, ls_str_funcs)
-        f_not = df.DiscreteFunction.read_from_str('f_3_2_19458')
+        premise = map(df.DiscreteFunction.str2df, ls_str_funcs)
+        f_not = df.DiscreteFunction.str2df('f_3_2_19458')
         new_f = df.DiscreteFunction(range(3), {}, 3)
         f = df.commuting_functions_from_negative(new_f, premise, f_not).next()
         assert all(df.commute(f, f_other) for f_other in premise)
@@ -227,7 +227,7 @@ class Test:
         #Time taken:133.394649029
         
     def test_prover_holds_identity(self):
-        f_not = df.DiscreteFunction.read_from_str('f_3_1_21')
+        f_not = df.DiscreteFunction.str2df('f_3_1_21')
         premise = []
         new_f = df.DiscreteFunction(range(3), {}, 3)
         assert_raises(StopIteration, next,
